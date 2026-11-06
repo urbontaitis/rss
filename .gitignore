@@ -1,0 +1,9 @@
+node_modules
+dist
+*.local
+*.opml
+!src/**/*.opml
+supabase/.branches
+supabase/.temp
+.env
+.env.*
