@@ -1,0 +1,14 @@
+node_modules
+dist
+*.local
+*.opml
+!e2e/fixtures/*.opml
+supabase/.branches
+supabase/.temp
+.env
+.env.*
+*.tsbuildinfo
+coverage
+playwright-report
+test-results
+blob-report
