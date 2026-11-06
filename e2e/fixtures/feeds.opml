@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<opml version="2.0">
+  <head><title>Fixture</title></head>
+  <body>
+    <outline text="Cycling">
+      <outline title="Mock Cycling" text="Mock Cycling" xmlUrl="https://cycling.example/feed" htmlUrl="https://cycling.example/" type="rss"></outline>
+    </outline>
+    <outline text="Dev">
+      <outline title="Mock Dev" text="Mock Dev" xmlUrl="https://dev.example/atom" htmlUrl="https://dev.example/" type="rss"></outline>
+    </outline>
+  </body>
+</opml>

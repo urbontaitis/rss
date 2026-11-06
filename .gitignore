@@ -2,7 +2,7 @@ node_modules
 dist
 *.local
 *.opml
-!src/**/*.opml
+!e2e/fixtures/*.opml
 supabase/.branches
 supabase/.temp
 .env
