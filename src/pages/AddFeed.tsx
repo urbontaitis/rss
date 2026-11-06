@@ -9,7 +9,7 @@ import { bumpRevision } from '../lib/store'
 
 export function AddFeedPage() {
   const navigate = useNavigate()
-  const { data: categories } = useAsync(listCategories, [])
+  const { data: categories } = useAsync(listCategories)
   const [url, setUrl] = useState('')
   const [categoryId, setCategoryId] = useState('')
   const [crawler, setCrawler] = useState(false)

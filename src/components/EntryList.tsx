@@ -22,15 +22,18 @@ export function EntryList({ title, query, emptyText = 'There are no entries.', a
   const navigate = useNavigate()
   const page = Number(new URLSearchParams(location.search).get('page') || 0)
   const key = JSON.stringify(query)
-  const { data, error, loading, reload } = useAsync(() => listEntries({ ...query, page }), [key, page, settings.entriesPerPage, settings.sortDirection])
+  const { data, error, loading, reload } = useAsync(() => listEntries({ ...query, page }), `${key}|${page}|${settings.entriesPerPage}|${settings.sortDirection}`)
   const [items, setItems] = useState<EntryListItem[]>([])
   const [selected, setSelected] = useState(0)
 
   useEffect(() => {
     setItems(data?.items || [])
     setSelected(0)
-    rememberList((data?.items || []).map((item) => item.id), location.pathname + location.search)
   }, [data])
+
+  useEffect(() => {
+    rememberList((data?.items || []).map((item) => item.id), location.pathname + location.search)
+  }, [data, location.pathname, location.search])
 
   const totalPages = Math.max(1, Math.ceil((data?.total || 0) / settings.entriesPerPage))
   const pageLink = (target: number) => {
@@ -83,7 +86,6 @@ export function EntryList({ title, query, emptyText = 'There are no entries.', a
       n: () => page < totalPages - 1 && navigate(pageLink(page + 1)),
       p: () => page > 0 && navigate(pageLink(page - 1)),
     },
-    [items, selected, page, totalPages],
   )
 
   useEffect(() => {

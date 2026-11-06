@@ -7,7 +7,7 @@ import { proxify } from '../lib/mediaProxy'
 import { neighbours } from '../lib/navigation'
 import { downloadOriginal } from '../lib/refresh'
 import { renderContent } from '../lib/sanitize'
-import { useSettings } from '../lib/settings'
+import { getSettings, useSettings } from '../lib/settings'
 import { bumpCounters } from '../lib/store'
 import { fullDate, timeAgo } from '../lib/time'
 import type { Entry } from '../lib/types'
@@ -42,7 +42,7 @@ export function EntryPage() {
     const entry = await getEntry(id)
     const feed = await getFeed(entry.feed_id)
     return { entry, feed }
-  }, [id])
+  }, id)
   const [entry, setEntry] = useState<Entry>()
   const [busy, setBusy] = useState('')
   const nav = neighbours(id)
@@ -50,7 +50,7 @@ export function EntryPage() {
   useEffect(() => {
     if (!data) return
     setEntry(data.entry)
-    if (settings.markReadOnView && data.entry.status === 'unread') {
+    if (getSettings().markReadOnView && data.entry.status === 'unread') {
       setEntryStatus([data.entry.id], 'read').then(() => {
         setEntry((value) => (value ? { ...value, status: 'read' } : value))
         bumpCounters()
@@ -58,7 +58,7 @@ export function EntryPage() {
     }
   }, [data])
 
-  const html = useMemo(() => (entry ? renderContent(entry.content, settings) : ''), [entry?.content, settings])
+  const html = useMemo(() => (entry ? renderContent(entry.content, settings, entry.url) : ''), [entry, settings])
 
   const toggleRead = async () => {
     if (!entry) return
@@ -101,7 +101,6 @@ export function EntryPage() {
       s: () => void toggleStar(),
       d: () => void fetchOriginal(),
     },
-    [entry, nav.next, nav.prev, nav.back],
   )
 
   if (error) return <p className="alert error">{error}</p>

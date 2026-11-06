@@ -11,7 +11,7 @@ export function FeedsPage() {
   const { data, error } = useAsync(async () => {
     const [feeds, counters, categories] = await Promise.all([listFeeds(), listCounters(), listCategories()])
     return { feeds, counters: new Map(counters.map((counter) => [counter.feed_id, counter])), categories: new Map(categories.map((category) => [category.id, category])) }
-  }, [])
+  })
 
   const remove = async (id: number, title: string) => {
     if (!confirm(`Remove "${title}" and all its entries?`)) return

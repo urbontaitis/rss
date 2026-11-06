@@ -1,11 +1,10 @@
-import { Readability } from '@mozilla/readability'
 import { absoluteUrl } from '../text'
 
 function absolutize(root: ParentNode, base: string) {
-  root.querySelectorAll('[src]').forEach((el) => el.setAttribute('src', absoluteUrl(el.getAttribute('src') || '', base)))
-  root.querySelectorAll('[href]').forEach((el) => el.setAttribute('href', absoluteUrl(el.getAttribute('href') || '', base)))
+  root.querySelectorAll('[src]').forEach((el) => el.setAttribute('src', absoluteUrl(el.getAttribute('src') as string, base)))
+  root.querySelectorAll('[href]').forEach((el) => el.setAttribute('href', absoluteUrl(el.getAttribute('href') as string, base)))
   root.querySelectorAll('[srcset]').forEach((el) => {
-    const value = (el.getAttribute('srcset') || '')
+    const value = (el.getAttribute('srcset') as string)
       .split(',')
       .map((part) => {
         const [src, ...rest] = part.trim().split(/\s+/)
@@ -16,17 +15,20 @@ function absolutize(root: ParentNode, base: string) {
   })
 }
 
-export function extractContent(html: string, pageUrl: string, rules: string): string {
+function queryAll(doc: Document, selector: string): Element[] {
+  try {
+    return Array.from(doc.querySelectorAll(selector))
+  } catch {
+    return []
+  }
+}
+
+export async function extractContent(html: string, pageUrl: string, rules: string): Promise<string> {
   const doc = new DOMParser().parseFromString(html, 'text/html')
   const baseHref = doc.querySelector('base[href]')?.getAttribute('href')
   const base = baseHref ? absoluteUrl(baseHref, pageUrl) : pageUrl
   if (rules.trim()) {
-    let nodes: Element[] = []
-    try {
-      nodes = Array.from(doc.querySelectorAll(rules))
-    } catch {
-      nodes = []
-    }
+    const nodes = queryAll(doc, rules)
     if (nodes.length) {
       const container = doc.createElement('div')
       nodes.forEach((node) => container.appendChild(node.cloneNode(true)))
@@ -35,6 +37,7 @@ export function extractContent(html: string, pageUrl: string, rules: string): st
     }
   }
   absolutize(doc, base)
+  const { Readability } = await import('@mozilla/readability')
   const article = new Readability(doc, { keepClasses: false }).parse()
   return article?.content || ''
 }

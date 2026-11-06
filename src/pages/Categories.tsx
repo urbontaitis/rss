@@ -71,7 +71,7 @@ export function CategoriesPage() {
   const { data } = useAsync(async () => {
     const [categories, counters] = await Promise.all([listCategories(), listCounters()])
     return { categories, counters }
-  }, [])
+  })
 
   const add = async (event: FormEvent) => {
     event.preventDefault()

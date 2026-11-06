@@ -36,7 +36,7 @@ export async function scrapeOriginal(feed: Feed, url: string): Promise<string> {
   const target = rewriteUrl(url, feed.url_rewrite_rules)
   const result = await fetchUrl(target, fetchOptions(feed, false))
   if (result.status >= 400) throw new Error(`HTTP ${result.status}`)
-  return extractContent(result.body, result.url || target, feed.scraper_rules)
+  return await extractContent(result.body, result.url || target, feed.scraper_rules)
 }
 
 async function buildEntry(feed: Feed, item: ParsedItem, hash: string): Promise<Partial<Entry>> {
@@ -50,12 +50,12 @@ async function buildEntry(feed: Feed, item: ParsedItem, hash: string): Promise<P
       content = item.content
     }
   }
-  const rewritten = applyRewriteRules(
+  const rewritten = await applyRewriteRules(
     { title: item.title, content, url: item.url, commentsUrl: item.commentsUrl, guid: item.guid, enclosures: item.enclosures },
     feed.rewrite_rules,
     { invidiousInstance: settings.invidiousInstance },
   )
-  const clean = sanitizeHtml(rewritten.content, settings.invidiousInstance)
+  const clean = sanitizeHtml(rewritten.content, { invidiousInstance: settings.invidiousInstance, entryUrl: item.url })
   const published = item.publishedAt && !Number.isNaN(item.publishedAt.getTime()) ? item.publishedAt : new Date()
   return {
     feed_id: feed.id,
@@ -248,12 +248,12 @@ export async function downloadOriginal(entry: Entry, feed: Feed): Promise<string
   const settings = getSettings()
   const scraped = await scrapeOriginal(feed, entry.url)
   if (!scraped.trim()) throw new Error('No content could be extracted')
-  const rewritten = applyRewriteRules(
+  const rewritten = await applyRewriteRules(
     { title: entry.title, content: scraped, url: entry.url, commentsUrl: entry.comments_url, guid: entry.hash, enclosures: entry.enclosures },
     feed.rewrite_rules,
     { invidiousInstance: settings.invidiousInstance },
   )
-  const clean = sanitizeHtml(rewritten.content, settings.invidiousInstance)
+  const clean = sanitizeHtml(rewritten.content, { invidiousInstance: settings.invidiousInstance, entryUrl: entry.url })
   await updateEntryContent(entry.id, clean, readingTime(clean))
   return clean
 }

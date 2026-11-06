@@ -19,7 +19,7 @@ It is built for a single person. One Supabase Auth user owns all data, and row l
 - An image proxy for images, `srcset`, video posters and (optionally) audio/video in entry content, including scraped content
 - Per feed user agent, cookie and HTTP basic auth, plus a conditional `ETag`/`Last-Modified` fetch
 - Audio, video and image attachments, embedded YouTube players (`youtube-nocookie.com`)
-- HTML is sanitized with DOMPurify. Only iframes from known video and audio hosts are allowed, and they are sandboxed.
+- HTML sanitized with DOMPurify, a strict Content Security Policy and a hardened fetch function (see [Security](#security))
 - Keyboard shortcuts (press `?`), light and dark themes, and a layout that works on mobile
 
 ## How it works
@@ -75,20 +75,36 @@ Migrations:
 | --- | --- |
 | `20261106000000_schema.sql` | Tables, views (`entry_list`, `feed_counters`), full text search, RPC functions, row level security |
 | `20261106000100_scheduled_jobs.sql` | Enables `pg_cron` and `pg_net`, and schedules background fetching, response collection and cleanup |
+| `20261106000200_hardening.sql` | Fixed `search_path` for the trigger function, an index for per feed lists, and a check that feed URLs are http(s) |
 
 ### 2. Create your user
 
 In the dashboard, open *Authentication → Users → Add user* and create a user with email and password (auto confirm). Then turn off new sign ups under *Authentication → Sign In / Providers* so nobody else can register. `supabase/config.toml` already turns sign ups off for local and branch environments.
 
-### 3. Run or host the app
+### 3. Deploy the app to GitHub Pages
+
+`.github/workflows/deploy.yml` builds and publishes the app on every push to `main`, after the full CI suite passes.
+
+1. In the repository settings, open *Pages* and set *Source* to **GitHub Actions**.
+2. Push to `main`, or run the *Deploy to GitHub Pages* workflow by hand.
+3. Open `https://<user>.github.io/<repository>/` and enter the project URL, publishable key, email and password. Then add feeds or import an OPML file under *Feeds → Import / Export*.
+
+The build uses relative paths and hash routing, so `dist/` also works on any other static host.
+
+### 4. Restrict the fetch function (recommended)
+
+The `fetch` edge function only accepts requests that carry a valid user JWT. To also limit which websites may call it, set the allowed origins:
+
+```sh
+npx supabase secrets set ALLOWED_ORIGINS=https://<user>.github.io,http://localhost:5173
+```
+
+### Local development
 
 ```sh
 npm install
 npm run dev
-npm run build
 ```
-
-`npm run dev` starts a local server, and `npm run build` writes a static build to `dist/`. The build uses relative paths and hash routing, so `dist/` can be served from any static host (GitHub Pages, Cloudflare Pages, Netlify, a bucket, or a file server). Open the app, enter the project URL, publishable key, email and password, then add feeds or import an OPML file under *Feeds → Import / Export*.
 
 ### Image proxy
 
@@ -105,15 +121,49 @@ If the template has no placeholder, the encoded URL is appended. Examples: `http
 
 The proxy is applied when content is shown, so changing it affects existing entries as well.
 
-## Development
+## Development and testing
 
-```sh
-npm test
-npm run typecheck
-npx supabase start
-```
+| Command | What it does |
+| --- | --- |
+| `npm run lint` | ESLint (TypeScript and React hooks rules), zero warnings allowed |
+| `npm run typecheck` | TypeScript in strict mode, including tests and configs |
+| `npm test` | Unit and component tests (Vitest, jsdom, Testing Library) |
+| `npm run test:coverage` | The same tests with coverage thresholds (99% statements, lines and functions, 95% branches) |
+| `npm run test:e2e` | Playwright tests against the production build on desktop and mobile viewports, with the Supabase API mocked at the network layer |
+| `npm run test:db` | pgTAP tests for migrations, row level security, functions and scheduled jobs (needs `supabase db start`) |
 
-`npm test` runs the parser, rules, OPML, proxy and sanitizer tests (Vitest with jsdom). `npx supabase start` runs a local Supabase stack with the migrations applied.
+The suites check behaviour rather than lines:
+
+- **Unit tests:** feed formats, every rule type, the refresh pipeline (deduplication, filtering, crawling, error backoff, snapshots, tab locking, scheduler), the fetch function's SSRF protection, and the sanitizer.
+- **Component tests:** drive each page the way a user does.
+- **End-to-end tests:** cover sign in, subscription and discovery, reading, starring, OPML import, rule previews and keyboard navigation. They also check that no script from feed content runs, that the CSP is present, that the initial JavaScript stays within budget with heavy modules deferred, and that pages don't scroll horizontally on mobile.
+
+### Continuous integration
+
+`.github/workflows/ci.yml` runs on every branch push and pull request. It has three parallel jobs:
+
+1. **Checks:** a production dependency audit, lint, typecheck, and unit/component tests with coverage. The coverage summary is shown on the run page and uploaded as an artifact.
+2. **End to end:** the Playwright tests in Chromium.
+3. **Database:** starts the Supabase Postgres image, applies all migrations, runs `supabase db lint` and the pgTAP tests in `supabase/tests`.
+
+### Dependency updates
+
+[Renovate](https://docs.renovatebot.com/) (`renovate.json`) groups all dependency updates, including GitHub Action digests and lock file maintenance, into one weekly pull request. Each Renovate branch is a single commit that Renovate rewrites when updates change. Security fixes are raised immediately. Install the Renovate GitHub App on the repository to enable it.
+
+## Security
+
+- **Access:** row level security on every table; only the `authenticated` role has access, and `anon` has none. Turn off sign ups so the database belongs to a single user.
+- **Database functions:** security definer functions use a fixed `search_path`, and the browser can't call the scheduling functions.
+- **HTML sanitizing:** feed and scraped HTML is sanitized with DOMPurify before it is stored and again before it is shown. Scripts, styles, forms, event handlers and `javascript:` URLs are removed. Links open with `noopener noreferrer`. Iframes are allowed only from known video and audio hosts, the configured Invidious instance, or the entry's own site, and are sandboxed.
+- **Fetch function:** it rejects non-HTTP URLs, private, loopback and link-local addresses (including DNS names that resolve to them), and checks every redirect hop. It drops cookies and credentials on cross-origin redirects, limits responses to 15 MB, and serves them with `nosniff` and a sandbox CSP.
+- **Browser:** the production build has a Content Security Policy (`script-src 'self'`, `object-src 'none'`, `base-uri 'none'`) and a `no-referrer` policy, and images load with `referrerpolicy="no-referrer"`.
+- **Secrets:** the browser stores only the publishable key and the auth session. Feed passwords and cookies are stored in the database, protected by row level security.
+
+## Performance
+
+- **Code splitting:** each route except the entry lists loads on demand. Readability and the Markdown parser load only when a scraper or `parse_markdown` rule runs. React, supabase-js and DOMPurify are separate long-cacheable chunks.
+- **Refresh:** a configurable number of parallel requests, conditional `ETag`/`Last-Modified` requests, backoff for failing feeds, and a single refreshing tab.
+- **Database:** indexed queries for unread, starred, history, per feed lists and full text search. Existence checks are batched before inserts, and inserts use `on conflict do nothing`.
 
 ## License
 

@@ -248,10 +248,23 @@ export function looksLikeFeed(body: string): boolean {
   return /<(rss|feed|rdf:RDF)[\s>]/i.test(head)
 }
 
+export function stripControlCharacters(value: string): string {
+  let result = ''
+  let start = 0
+  for (let index = 0; index < value.length; index++) {
+    const code = value.charCodeAt(index)
+    if (code < 0x20 && code !== 0x09 && code !== 0x0a && code !== 0x0d) {
+      result += value.slice(start, index)
+      start = index + 1
+    }
+  }
+  return start === 0 ? value : result + value.slice(start)
+}
+
 export function parseFeed(body: string, feedUrl: string): ParsedFeed {
-  const source = body.replace(/^﻿/, '').trimStart()
+  const source = (body.charCodeAt(0) === 0xfeff ? body.slice(1) : body).trimStart()
   if (source.startsWith('{')) return parseJson(source, feedUrl)
-  const sanitized = source.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '')
+  const sanitized = stripControlCharacters(source)
   const doc = new DOMParser().parseFromString(sanitized, 'application/xml')
   const error = doc.getElementsByTagName('parsererror')[0]
   if (error) throw new FeedParseError(`Invalid XML: ${(error.textContent || '').trim().slice(0, 200)}`)

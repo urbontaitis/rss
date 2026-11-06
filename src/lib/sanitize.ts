@@ -2,7 +2,7 @@ import DOMPurify from 'dompurify'
 import type { LocalSettings } from './settings'
 import { proxifyContent } from './mediaProxy'
 
-const iframeHosts = [
+export const iframeHosts = [
   'www.youtube-nocookie.com',
   'www.youtube.com',
   'youtube.com',
@@ -15,8 +15,31 @@ const iframeHosts = [
   'embed.podcasts.apple.com',
 ]
 
+export interface SanitizeOptions {
+  invidiousInstance?: string
+  entryUrl?: string
+}
+
 let configured = false
-let extraIframeHost = ''
+let extraHosts: string[] = []
+
+function hostOf(value: string): string {
+  try {
+    return new URL(/^https?:\/\//.test(value) ? value : `https://${value}`).hostname
+  } catch {
+    return ''
+  }
+}
+
+export function isAllowedIframe(src: string, extra: string[] = []): boolean {
+  try {
+    const url = new URL(src)
+    if (url.protocol !== 'https:') return false
+    return iframeHosts.includes(url.hostname) || url.hostname.endsWith('.bandcamp.com') || extra.includes(url.hostname)
+  } catch {
+    return false
+  }
+}
 
 function configure() {
   if (configured) return
@@ -24,13 +47,7 @@ function configure() {
   DOMPurify.addHook('uponSanitizeElement', (node, data) => {
     if (data.tagName !== 'iframe') return
     const el = node as Element
-    try {
-      const url = new URL(el.getAttribute('src') || '')
-      const allowed = url.protocol === 'https:' && (iframeHosts.includes(url.hostname) || url.hostname.endsWith('.bandcamp.com') || (extraIframeHost && url.hostname === extraIframeHost) || url.pathname.includes('/embed'))
-      if (!allowed) el.remove()
-    } catch {
-      el.remove()
-    }
+    if (!isAllowedIframe(el.getAttribute('src') || '', extraHosts)) el.remove()
   })
   DOMPurify.addHook('afterSanitizeAttributes', (node) => {
     const el = node as Element
@@ -40,6 +57,7 @@ function configure() {
     }
     if (el.tagName === 'IMG') {
       el.setAttribute('loading', 'lazy')
+      el.setAttribute('decoding', 'async')
       el.setAttribute('referrerpolicy', 'no-referrer')
       el.removeAttribute('width')
       el.removeAttribute('height')
@@ -47,23 +65,28 @@ function configure() {
     if (el.tagName === 'IFRAME') {
       el.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-popups allow-presentation')
       el.setAttribute('loading', 'lazy')
+      el.setAttribute('referrerpolicy', 'strict-origin-when-cross-origin')
     }
   })
 }
 
-export function sanitizeHtml(html: string, invidiousInstance = ''): string {
+export function sanitizeHtml(html: string, options: SanitizeOptions = {}): string {
   configure()
-  extraIframeHost = invidiousInstance.replace(/^https?:\/\//, '').replace(/\/.*$/, '')
-  return DOMPurify.sanitize(html, {
-    ADD_TAGS: ['iframe'],
-    ADD_ATTR: ['allowfullscreen', 'frameborder', 'loading', 'referrerpolicy', 'target'],
-    FORBID_TAGS: ['style', 'form', 'input', 'button', 'textarea', 'select', 'script', 'object', 'embed', 'link', 'meta', 'base'],
-    FORBID_ATTR: ['style', 'class', 'id'],
-  })
+  extraHosts = [options.invidiousInstance, options.entryUrl].map((value) => (value ? hostOf(value) : '')).filter(Boolean)
+  try {
+    return DOMPurify.sanitize(html, {
+      ADD_TAGS: ['iframe'],
+      ADD_ATTR: ['allowfullscreen', 'frameborder', 'loading', 'referrerpolicy', 'target'],
+      FORBID_TAGS: ['style', 'form', 'input', 'button', 'textarea', 'select', 'script', 'object', 'embed', 'link', 'meta', 'base'],
+      FORBID_ATTR: ['style', 'class', 'id'],
+    })
+  } finally {
+    extraHosts = []
+  }
 }
 
-export function renderContent(html: string, settings: LocalSettings): string {
-  const clean = sanitizeHtml(html, settings.invidiousInstance)
+export function renderContent(html: string, settings: LocalSettings, entryUrl = ''): string {
+  const clean = sanitizeHtml(html, { invidiousInstance: settings.invidiousInstance, entryUrl })
   if (!settings.imageProxyTemplate || settings.imageProxyMode === 'none') return clean
   const doc = new DOMParser().parseFromString(`<body>${clean}</body>`, 'text/html')
   proxifyContent(doc.body, settings)

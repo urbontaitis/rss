@@ -1,4 +1,3 @@
-import { marked } from 'marked'
 import type { Enclosure } from '../types'
 import { escapeHtml, fromBase64, hostname } from '../text'
 import { compileRegex, goReplacement, splitQuotedArgs } from './regex'
@@ -148,7 +147,7 @@ function nl2br(doc: Document) {
   }
 }
 
-function useNoscriptImages(doc: Document, selector: string) {
+function applyNoscriptImages(doc: Document, selector: string) {
   doc.querySelectorAll(selector).forEach((container) => {
     const noscript = container.querySelector('noscript')
     if (!noscript) return
@@ -189,7 +188,7 @@ function removeClickbait(title: string): string {
   return lower.charAt(0).toLocaleUpperCase() + lower.slice(1)
 }
 
-function applyRule(rule: ParsedRule, target: RewriteTarget, doc: Document, options: RewriteOptions) {
+async function applyRule(rule: ParsedRule, target: RewriteTarget, doc: Document, options: RewriteOptions): Promise<void> {
   const body = doc.body
   const prepend = (html: string) => body.insertAdjacentHTML('afterbegin', html)
   switch (rule.name) {
@@ -210,7 +209,7 @@ function applyRule(rule: ParsedRule, target: RewriteTarget, doc: Document, optio
           }
         }
       })
-      useNoscriptImages(doc, 'picture, figure, div, span, p')
+      applyNoscriptImages(doc, 'picture, figure, div, span, p')
       break
     case 'add_dynamic_iframe':
       body.querySelectorAll('iframe').forEach((frame) => {
@@ -285,11 +284,11 @@ function applyRule(rule: ParsedRule, target: RewriteTarget, doc: Document, optio
       linkifyText(doc)
       break
     case 'fix_medium_images':
-      useNoscriptImages(doc, 'figure')
+      applyNoscriptImages(doc, 'figure')
       body.querySelectorAll('img[data-src]').forEach((img) => img.setAttribute('src', img.getAttribute('data-src') || ''))
       break
     case 'use_noscript_figure_images':
-      useNoscriptImages(doc, 'figure')
+      applyNoscriptImages(doc, 'figure')
       break
     case 'replace': {
       const [search, replacement] = splitQuotedArgs(rule.args)
@@ -307,9 +306,11 @@ function applyRule(rule: ParsedRule, target: RewriteTarget, doc: Document, optio
       }
       break
     }
-    case 'parse_markdown':
-      body.innerHTML = marked.parse(body.textContent || '', { async: false }) as string
+    case 'parse_markdown': {
+      const { marked } = await import('marked')
+      body.innerHTML = await marked.parse(body.textContent || '')
       break
+    }
     case 'remove_tables':
       body.querySelectorAll('table').forEach((table) => {
         const fragment = doc.createDocumentFragment()
@@ -375,13 +376,13 @@ export function defaultRewriteRules(url: string): string {
   return ''
 }
 
-export function applyRewriteRules(target: RewriteTarget, rules: string, options: RewriteOptions = {}): RewriteTarget {
+export async function applyRewriteRules(target: RewriteTarget, rules: string, options: RewriteOptions = {}): Promise<RewriteTarget> {
   const result = { ...target }
   const effective = [defaultRewriteRules(target.url), rules].filter(Boolean).join(',')
   const parsed = parseRewriteRules(effective)
   if (!parsed.length) return result
   const doc = new DOMParser().parseFromString(`<!doctype html><html><body>${result.content}</body></html>`, 'text/html')
-  for (const rule of parsed) applyRule(rule, result, doc, options)
+  for (const rule of parsed) await applyRule(rule, result, doc, options)
   result.content = doc.body.innerHTML
   return result
 }

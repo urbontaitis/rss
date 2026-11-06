@@ -20,10 +20,10 @@ function proxifySrcset(value: string, settings: Pick<LocalSettings, 'imageProxyT
 
 export function proxifyContent(root: ParentNode, settings: Pick<LocalSettings, 'imageProxyTemplate' | 'imageProxyMode' | 'imageProxyMedia'>): void {
   if (!settings.imageProxyTemplate || settings.imageProxyMode === 'none') return
-  root.querySelectorAll('img[src], picture source[src]').forEach((el) => el.setAttribute('src', proxify(el.getAttribute('src') || '', settings)))
-  root.querySelectorAll('img[srcset], picture source[srcset]').forEach((el) => el.setAttribute('srcset', proxifySrcset(el.getAttribute('srcset') || '', settings)))
-  root.querySelectorAll('video[poster]').forEach((el) => el.setAttribute('poster', proxify(el.getAttribute('poster') || '', settings)))
+  root.querySelectorAll('img[src], picture source[src]').forEach((el) => el.setAttribute('src', proxify(el.getAttribute('src') as string, settings)))
+  root.querySelectorAll('img[srcset], picture source[srcset]').forEach((el) => el.setAttribute('srcset', proxifySrcset(el.getAttribute('srcset') as string, settings)))
+  root.querySelectorAll('video[poster]').forEach((el) => el.setAttribute('poster', proxify(el.getAttribute('poster') as string, settings)))
   if (settings.imageProxyMedia) {
-    root.querySelectorAll('audio[src], video[src], audio source[src], video source[src]').forEach((el) => el.setAttribute('src', proxify(el.getAttribute('src') || '', settings)))
+    root.querySelectorAll('audio[src], video[src], audio source[src], video source[src]').forEach((el) => el.setAttribute('src', proxify(el.getAttribute('src') as string, settings)))
   }
 }

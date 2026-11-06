@@ -1,0 +1,34 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    "helpers:pinGitHubActionDigests",
+    ":semanticCommitsDisabled"
+  ],
+  "timezone": "Europe/Vilnius",
+  "schedule": [
+    "before 6am on monday"
+  ],
+  "labels": [
+    "dependencies"
+  ],
+  "rangeStrategy": "bump",
+  "separateMajorMinor": false,
+  "separateMinorPatch": false,
+  "separateMultipleMajor": false,
+  "lockFileMaintenance": {
+    "enabled": true
+  },
+  "packageRules": [
+    {
+      "description": "Group every update into a single pull request with a single commit",
+      "matchPackageNames": [
+        "*"
+      ],
+      "groupName": "all dependencies",
+      "groupSlug": "all"
+    }
+  ],
+  "prConcurrentLimit": 1,
+  "prHourlyLimit": 0
+}

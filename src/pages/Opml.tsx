@@ -68,7 +68,10 @@ export function OpmlPage() {
       <div className="panel">
         <h2>Import</h2>
         <p>Select an OPML file. Feeds already subscribed are skipped; outline groups become categories.</p>
-        <input type="file" accept=".opml,.xml,text/xml,text/x-opml,application/xml" onChange={(event) => void onFile(event)} />
+        <label className="file-label">
+          OPML file
+          <input type="file" accept=".opml,.xml,text/xml,text/x-opml,application/xml" onChange={(event) => void onFile(event)} />
+        </label>
         {pending ? (
           <>
             <p>{pending.length} feed(s) in {categories} categor{categories === 1 ? 'y' : 'ies'} found.</p>

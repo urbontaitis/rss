@@ -1,14 +1,24 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { dataStore } from './store'
 
-export function useAsync<T>(loader: () => Promise<T>, deps: unknown[]): { data: T | undefined; error: string; loading: boolean; reload: () => void } {
+export interface AsyncState<T> {
+  data: T | undefined
+  error: string
+  loading: boolean
+  reload: () => void
+}
+
+export function useAsync<T>(loader: () => Promise<T>, key: string | number = ''): AsyncState<T> {
   const [data, setData] = useState<T>()
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
   const [tick, setTick] = useState(0)
   const { revision } = dataStore.use()
   const loaderRef = useRef(loader)
-  loaderRef.current = loader
+
+  useEffect(() => {
+    loaderRef.current = loader
+  })
 
   useEffect(() => {
     let cancelled = false
@@ -28,25 +38,33 @@ export function useAsync<T>(loader: () => Promise<T>, deps: unknown[]): { data: 
     return () => {
       cancelled = true
     }
-  }, [...deps, tick, revision])
+  }, [key, tick, revision])
 
   const reload = useCallback(() => setTick((value) => value + 1), [])
   return { data, error, loading, reload }
 }
 
-export function useHotkeys(map: Record<string, (event: KeyboardEvent) => void>, deps: unknown[]) {
+export function isTypingTarget(target: EventTarget | null): boolean {
+  const el = target as HTMLElement | null
+  return Boolean(el && (el.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName)))
+}
+
+export function useHotkeys(map: Record<string, (event: KeyboardEvent) => void>): void {
+  const mapRef = useRef(map)
+
+  useEffect(() => {
+    mapRef.current = map
+  })
+
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
-      const target = event.target as HTMLElement
-      if (target && (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))) return
-      if (event.ctrlKey || event.metaKey || event.altKey) return
-      const action = map[event.key]
-      if (action) {
-        event.preventDefault()
-        action(event)
-      }
+      if (isTypingTarget(event.target) || event.ctrlKey || event.metaKey || event.altKey) return
+      const action = mapRef.current[event.key]
+      if (!action) return
+      event.preventDefault()
+      action(event)
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, deps)
+  }, [])
 }

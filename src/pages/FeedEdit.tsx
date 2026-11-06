@@ -29,7 +29,7 @@ export function FeedEditPage() {
   const { data, error } = useAsync(async () => {
     const [feed, categories] = await Promise.all([getFeed(id), listCategories()])
     return { feed, categories }
-  }, [id])
+  }, id)
   const [draft, setDraft] = useState<Draft>()
   const [message, setMessage] = useState('')
   const [preview, setPreview] = useState<PreviewItem[]>()
@@ -90,7 +90,14 @@ export function FeedEditPage() {
       const [server, result] = await Promise.all([getServerSettings(), fetchUrl(draft.feed_url, { userAgent: draft.user_agent, cookie: draft.cookie, username: draft.username, password: draft.password })])
       const parsed = parseFeed(result.body, draft.feed_url)
       const rules = { globalBlock: server.block_filter_entry_rules, globalKeep: server.keep_filter_entry_rules, feedBlock: draft.block_filter_entry_rules, feedKeep: draft.keep_filter_entry_rules }
-      setPreview(parsed.items.map((item) => ({ title: applyRewriteRules({ title: item.title, content: '', url: item.url, commentsUrl: item.commentsUrl, guid: item.guid, enclosures: [] }, draft.rewrite_rules).title, url: item.url, kept: shouldKeep(item, rules) })))
+      setPreview(
+        await Promise.all(
+          parsed.items.map(async (item) => {
+            const rewritten = await applyRewriteRules({ title: item.title, content: '', url: item.url, commentsUrl: item.commentsUrl, guid: item.guid, enclosures: [] }, draft.rewrite_rules)
+            return { title: rewritten.title, url: item.url, kept: shouldKeep(item, rules) }
+          }),
+        ),
+      )
       setMessage('')
     } catch (err) {
       setMessage(err instanceof Error ? err.message : String(err))
@@ -106,8 +113,8 @@ export function FeedEditPage() {
     setMessage(`Fetching ${rewriteUrl(first, draft.url_rewrite_rules)}…`)
     try {
       const content = await scrapeOriginal({ ...(draft as Feed), id }, first)
-      const rewritten = applyRewriteRules({ title: '', content, url: first, commentsUrl: '', guid: '', enclosures: [] }, draft.rewrite_rules, { invidiousInstance: settings.invidiousInstance })
-      setScrapePreview(renderContent(rewritten.content, settings))
+      const rewritten = await applyRewriteRules({ title: '', content, url: first, commentsUrl: '', guid: '', enclosures: [] }, draft.rewrite_rules, { invidiousInstance: settings.invidiousInstance })
+      setScrapePreview(renderContent(rewritten.content, settings, first))
       setMessage('')
     } catch (err) {
       setMessage(err instanceof Error ? err.message : String(err))

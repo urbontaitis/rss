@@ -27,7 +27,7 @@ export function FeedEntriesPage() {
   const [params] = useSearchParams()
   const showAll = params.get('all') === '1'
   const refresh = refreshStore.use()
-  const { data: feed } = useAsync(() => getFeed(id), [id])
+  const { data: feed } = useAsync(() => getFeed(id), id)
   return (
     <>
       {feed?.parsing_error_msg ? (
@@ -60,7 +60,7 @@ export function CategoryEntriesPage() {
   const id = Number(useParams().id)
   const [params] = useSearchParams()
   const showAll = params.get('all') === '1'
-  const { data: categories } = useAsync(listCategories, [])
+  const { data: categories } = useAsync(listCategories)
   const category = categories?.find((item) => item.id === id)
   return (
     <EntryList

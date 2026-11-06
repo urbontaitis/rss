@@ -10,7 +10,7 @@ export function Header() {
   const [query, setQuery] = useState('')
   const refresh = refreshStore.use()
   const { counters: counterRevision } = dataStore.use()
-  const { data: counters } = useAsync(listCounters, [counterRevision])
+  const { data: counters } = useAsync(listCounters, counterRevision)
   const unread = counters?.reduce((sum, counter) => sum + Number(counter.unread), 0) ?? 0
 
   useHotkeys(
@@ -19,7 +19,6 @@ export function Header() {
       R: () => void refreshAll({ force: true }),
       '?': () => navigate('/shortcuts'),
     },
-    [navigate],
   )
 
   const submit = (event: FormEvent) => {

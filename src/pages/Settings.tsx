@@ -115,7 +115,7 @@ function LocalSettingsForm() {
 }
 
 function ServerSettingsForm() {
-  const { data, error } = useAsync(getServerSettings, [])
+  const { data, error } = useAsync(getServerSettings)
   const [draft, setDraft] = useState<ServerSettings>()
   const [message, setMessage] = useState('')
   useEffect(() => {
@@ -187,7 +187,7 @@ function ConnectionPanel() {
   const [email, setEmail] = useState('')
   useEffect(() => {
     getClient().auth.getUser().then(({ data }) => setEmail(data.user?.email || ''))
-  }, [])
+  })
 
   const signOut = async () => {
     await getClient().auth.signOut()
