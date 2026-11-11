@@ -81,16 +81,16 @@ describe('entry lists', () => {
     const { user } = renderRoute(<UnreadPage />, { at: '/unread?page=2' })
     await user.click(await screen.findByRole('button', { name: 'Mark page as read and show next ›' }))
     expect(db.setEntryStatus).toHaveBeenCalledWith([1, 3], 'read')
-    expect(scrollTo).toHaveBeenCalledWith(0, 0)
     // 7 unread - 2 marked leaves 5, which fit on pages 0 and 1.
-    expect(screen.getByTestId('location')).toHaveTextContent('/unread?page=1')
+    await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent('/unread?page=1'))
+    expect(scrollTo).toHaveBeenCalledWith(0, 0)
   })
 
   it('moves to the next page after marking a page as read where read entries stay listed', async () => {
     vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined)
     const { user } = renderRoute(<StarredPage />, { at: '/starred' })
     await user.click(await screen.findByRole('button', { name: 'Mark page as read and show next ›' }))
-    expect(screen.getByTestId('location')).toHaveTextContent('/starred?page=1')
+    await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent('/starred?page=1'))
   })
 
   it('offers no next page when the last unread entries are on screen', async () => {
