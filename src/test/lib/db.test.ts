@@ -99,6 +99,14 @@ describe('entries', () => {
     expect([...found]).toEqual(['h0', 'h200', 'h400'])
   })
 
+  it('counts unread entries split by global visibility', async () => {
+    mock.setResponder((query) => ({ data: null, error: null, count: query.calls.some((call) => call.method === 'eq' && call.args[0] === 'hidden' && call.args[1] === true) ? 4 : 9 }))
+    expect(await db.countUnread()).toEqual({ visible: 9, hidden: 4 })
+    expect(methods(mock.callsFor('entry_list')[0])).toEqual(['select("id",{"count":"exact","head":true})', 'eq("status","unread")', 'eq("hidden",false)'])
+    mock.setResponder(() => ({ data: null, error: { message: 'boom' } }))
+    await expect(db.countUnread()).rejects.toThrow('boom')
+  })
+
   it('inserts entries ignoring duplicates', async () => {
     expect(await db.insertEntries([])).toBe(0)
     mock.setResponder(() => ({ data: [{ id: 1 }, { id: 2 }], error: null }))

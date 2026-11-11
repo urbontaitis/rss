@@ -76,6 +76,37 @@ describe('entry lists', () => {
     expect(db.markAllRead).toHaveBeenCalledWith({ feedId: undefined, categoryId: undefined })
   })
 
+  it('marks the page as read from the bottom and shows the next entries', async () => {
+    const scrollTo = vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined)
+    const { user } = renderRoute(<UnreadPage />, { at: '/unread?page=2' })
+    await user.click(await screen.findByRole('button', { name: 'Mark page as read and show next ›' }))
+    expect(db.setEntryStatus).toHaveBeenCalledWith([1, 3], 'read')
+    expect(scrollTo).toHaveBeenCalledWith(0, 0)
+    // 7 unread - 2 marked leaves 5, which fit on pages 0 and 1.
+    expect(screen.getByTestId('location')).toHaveTextContent('/unread?page=1')
+  })
+
+  it('moves to the next page after marking a page as read where read entries stay listed', async () => {
+    vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined)
+    const { user } = renderRoute(<StarredPage />, { at: '/starred' })
+    await user.click(await screen.findByRole('button', { name: 'Mark page as read and show next ›' }))
+    expect(screen.getByTestId('location')).toHaveTextContent('/starred?page=1')
+  })
+
+  it('offers no next page when the last unread entries are on screen', async () => {
+    db.listEntries.mockResolvedValue({ items, total: 2 })
+    renderRoute(<UnreadPage />, { at: '/unread' })
+    expect(await screen.findByRole('button', { name: 'Mark page as read' })).toBeInTheDocument()
+  })
+
+  it('explains unread entries hidden from the global list', async () => {
+    db.listEntries.mockResolvedValue({ items: [], total: 0 })
+    db.countUnread.mockResolvedValue({ visible: 0, hidden: 1317 })
+    renderRoute(<UnreadPage />, { at: '/unread' })
+    expect(await screen.findByText(/1317 unread entries are in feeds hidden from this list/)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Categories' })).toHaveAttribute('href', '/categories')
+  })
+
   it('paginates', async () => {
     const { user } = renderRoute(<UnreadPage />, { at: '/unread' })
     expect(await screen.findByText('Page 1 of 3')).toBeInTheDocument()

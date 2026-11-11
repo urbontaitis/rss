@@ -12,3 +12,5 @@ if (!Element.prototype.scrollIntoView) {
     return undefined
   }
 }
+
+window.scrollTo = () => undefined

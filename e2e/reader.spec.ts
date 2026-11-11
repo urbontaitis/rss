@@ -95,3 +95,26 @@ test('edits feed rules and previews them', async ({ page }) => {
   await expect(page.getByRole('link', { name: 'Show all entries' })).toBeVisible()
   expect(state.feeds[0].block_filter_entry_rules).toBe('EntryTitle=second')
 })
+
+test('keeps the menu reachable and marks a page as read from the bottom of a long list', async ({ page }) => {
+  const state = await mockSupabase(page)
+  state.feeds.push({ id: 900, title: 'Long', feed_url: 'https://long.example/feed.xml', site_url: 'https://long.example', category_id: null, disabled: true, hide_globally: false })
+  for (let i = 0; i < 150; i++) {
+    state.entries.push({ id: 1000 + i, feed_id: 900, title: `Long entry ${String(i).padStart(3, '0')}`, url: `https://long.example/${i}`, status: 'unread', starred: false, published_at: new Date(Date.UTC(2026, 10, 1, 0, i)).toISOString() })
+  }
+  await signIn(page)
+  await expect(page.getByRole('heading', { name: /Unread\s*\(150\)/ })).toBeVisible()
+
+  const next = page.getByRole('button', { name: 'Mark page as read and show next ›' })
+  await next.scrollIntoViewIfNeeded()
+  await expect(page.getByRole('navigation').getByRole('link', { name: 'Settings' })).toBeInViewport()
+  await next.click()
+
+  await expect(page.getByRole('heading', { name: /Unread\s*\(100\)/ })).toBeVisible()
+  await expect(page.getByRole('navigation').getByText('(100)')).toBeVisible()
+  expect(await page.evaluate(() => window.scrollY)).toBe(0)
+  await next.click()
+  await expect(page.getByRole('heading', { name: /Unread\s*\(50\)/ })).toBeVisible()
+  await page.getByRole('button', { name: 'Mark page as read', exact: true }).click()
+  await expect(page.getByText('There are no unread entries.')).toBeVisible()
+})

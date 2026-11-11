@@ -12,7 +12,7 @@ import { FeedIcon } from './FeedIcon'
 interface Props {
   title: string
   query: Omit<EntryQuery, 'page'>
-  emptyText?: string
+  emptyText?: React.ReactNode
   actions?: React.ReactNode
 }
 
@@ -58,10 +58,24 @@ export function EntryList({ title, query, emptyText = 'There are no entries.', a
     await setEntryStarred(item.id, !item.starred)
   }
 
-  const markPageRead = async () => {
+  // In unread views read entries drop out of the list, so the next ones slide into the current page.
+  const dropsRead = query.view === 'unread'
+  const unreadOnPage = items.filter((item) => item.status === 'unread').length
+  const hasMore = dropsRead ? (data?.total || 0) > unreadOnPage : page < totalPages - 1
+
+  const markPageRead = async (advance = false) => {
     const ids = items.filter((item) => item.status === 'unread').map((item) => item.id)
     await setEntryStatus(ids, 'read')
+    let target = page
+    if (dropsRead) {
+      const remaining = (data?.total || 0) - ids.length
+      target = Math.min(page, Math.max(0, Math.ceil(remaining / settings.entriesPerPage) - 1))
+    } else if (advance && hasMore) {
+      target = page + 1
+    }
     bumpRevision()
+    if (target !== page) navigate(pageLink(target))
+    if (advance) window.scrollTo(0, 0)
   }
 
   const markEverythingRead = async () => {
@@ -102,7 +116,7 @@ export function EntryList({ title, query, emptyText = 'There are no entries.', a
           {data ? <span className="count"> ({data.total})</span> : null}
         </h1>
         <ul className="page-actions">
-          {items.some((item) => item.status === 'unread') ? (
+          {unreadOnPage ? (
             <li>
               <button type="button" className="link-button" onClick={() => void markPageRead()}>Mark this page as read</button>
             </li>
@@ -160,6 +174,11 @@ export function EntryList({ title, query, emptyText = 'There are no entries.', a
           </article>
         ))}
       </div>
+      {unreadOnPage ? (
+        <button type="button" className="button page-read" onClick={() => void markPageRead(true)}>
+          {hasMore ? 'Mark page as read and show next ›' : 'Mark page as read'}
+        </button>
+      ) : null}
       {totalPages > 1 ? (
         <nav className="pagination">
           {page > 0 ? <Link to={pageLink(page - 1)}>‹ Previous</Link> : <span className="muted">‹ Previous</span>}

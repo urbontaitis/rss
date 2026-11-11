@@ -129,6 +129,16 @@ export async function listCounters(): Promise<FeedCounter[]> {
   return check(await getClient().from('feed_counters').select('*'))
 }
 
+export async function countUnread(): Promise<{ visible: number; hidden: number }> {
+  const count = async (hidden: boolean) => {
+    const result = await getClient().from('entry_list').select('id', { count: 'exact', head: true }).eq('status', 'unread').eq('hidden', hidden)
+    if (result.error) throw new Error(result.error.message)
+    return result.count || 0
+  }
+  const [visible, hidden] = await Promise.all([count(false), count(true)])
+  return { visible, hidden }
+}
+
 export async function getServerSettings(): Promise<ServerSettings> {
   return check(await getClient().from('settings').select('*').eq('id', 1).single())
 }

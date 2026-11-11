@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
-import { HashRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { HashRouter, Navigate, Route, Routes, useLocation, useNavigationType } from 'react-router-dom'
 import type { Session } from '@supabase/supabase-js'
 import { Header } from './components/Header'
 import { startScheduler } from './lib/refresh'
@@ -45,8 +45,17 @@ export function useSession(connected: boolean, connectionKey: string): Session |
   return session
 }
 
+function useScrollReset() {
+  const location = useLocation()
+  const type = useNavigationType()
+  useEffect(() => {
+    if (type !== 'POP') window.scrollTo(0, 0)
+  }, [location.pathname, location.search, type])
+}
+
 export function Reader() {
   useEffect(() => startScheduler(), [])
+  useScrollReset()
   return (
     <div className="layout">
       <Header />
