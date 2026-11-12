@@ -1,11 +1,25 @@
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { EntryList } from '../components/EntryList'
-import { getFeed, listCategories } from '../lib/db'
+import { countUnread, getFeed, listCategories } from '../lib/db'
 import { useAsync } from '../lib/hooks'
 import { refreshAll, refreshStore } from '../lib/refresh'
+import { dataStore } from '../lib/store'
 
 export function UnreadPage() {
-  return <EntryList title="Unread" query={{ view: 'unread' }} emptyText="There are no unread entries." />
+  const { counters } = dataStore.use()
+  const { data: counts } = useAsync(countUnread, counters)
+  const emptyText = (
+    <>
+      There are no unread entries.
+      {counts?.hidden ? (
+        <>
+          {' '}
+          {counts.hidden} unread {counts.hidden === 1 ? 'entry is' : 'entries are'} in feeds hidden from this list – open them from <Link to="/feeds">Feeds</Link> or <Link to="/categories">Categories</Link>.
+        </>
+      ) : null}
+    </>
+  )
+  return <EntryList title="Unread" query={{ view: 'unread' }} emptyText={emptyText} />
 }
 
 export function StarredPage() {

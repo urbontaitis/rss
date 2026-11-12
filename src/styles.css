@@ -121,9 +121,12 @@ kbd {
 }
 
 .header {
-  padding: 12px 0 8px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--bg);
+  padding: calc(12px + env(safe-area-inset-top, 0px)) 0 8px;
   border-bottom: 1px dotted var(--border);
-  margin-bottom: 16px;
 }
 
 .nav {
@@ -153,7 +156,7 @@ kbd {
   display: flex;
   gap: 12px;
   align-items: center;
-  margin-top: 8px;
+  margin: 8px 0 16px;
 }
 
 .search-form {
@@ -168,7 +171,7 @@ kbd {
 .refresh-status {
   font-size: 0.8rem;
   color: var(--muted);
-  margin-top: 4px;
+  margin: -12px 0 16px;
 }
 
 .count {
@@ -295,6 +298,13 @@ kbd {
 .feed-icon.placeholder {
   background: var(--soft);
   border-radius: 3px;
+}
+
+.page-read {
+  display: block;
+  width: 100%;
+  margin-top: 16px;
+  padding: 12px 14px;
 }
 
 .pagination {

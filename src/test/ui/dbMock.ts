@@ -18,6 +18,7 @@ export const db = {
   updateCategory: vi.fn(),
   deleteCategory: vi.fn(),
   listCounters: vi.fn(),
+  countUnread: vi.fn(),
   getServerSettings: vi.fn(),
   updateServerSettings: vi.fn(),
   existingHashes: vi.fn(),
@@ -44,6 +45,7 @@ export function resetMocks() {
   refresh.refreshAll.mockResolvedValue(undefined)
   db.listEntries.mockResolvedValue({ items: [], total: 0 })
   db.listCounters.mockResolvedValue([])
+  db.countUnread.mockResolvedValue({ visible: 0, hidden: 0 })
   db.listCategories.mockResolvedValue([])
   db.listFeeds.mockResolvedValue([])
   db.setEntryStatus.mockResolvedValue(undefined)

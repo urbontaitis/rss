@@ -13,17 +13,14 @@ const { bumpCounters } = await import('../../lib/store')
 beforeEach(() => {
   resetMocks()
   refreshStore.set({ running: false, message: '', done: 0, total: 0 })
-  db.listCounters.mockResolvedValue([
-    { feed_id: 1, category_id: null, unread: 3, total: 9 },
-    { feed_id: 2, category_id: null, unread: '4', total: 4 },
-  ])
+  db.countUnread.mockResolvedValue({ visible: 7, hidden: 5 })
 })
 
 describe('header', () => {
-  it('shows the unread total and refreshes it when counters change', async () => {
+  it('shows the unread total without hidden feeds and refreshes it when counters change', async () => {
     renderRoute(<Header />)
     expect(await screen.findByText('(7)')).toBeInTheDocument()
-    db.listCounters.mockResolvedValue([])
+    db.countUnread.mockResolvedValue({ visible: 0, hidden: 5 })
     act(() => bumpCounters())
     await waitFor(() => expect(screen.queryByText('(7)')).toBeNull())
   })
@@ -44,6 +41,8 @@ describe('header', () => {
     const { user } = renderRoute(<Header />)
     await user.click(screen.getByRole('button', { name: 'Refresh' }))
     expect(refresh.refreshAll).toHaveBeenCalledWith({ force: true })
+    act(() => refreshStore.set({ running: true, done: 0, total: 0 }))
+    expect(screen.getByRole('button', { name: 'Refreshing…' })).toBeDisabled()
     act(() => refreshStore.set({ running: true, done: 2, total: 5 }))
     expect(screen.getByRole('button', { name: 'Refreshing 2/5' })).toBeDisabled()
     act(() => refreshStore.set({ running: false, message: '3 new entries' }))
