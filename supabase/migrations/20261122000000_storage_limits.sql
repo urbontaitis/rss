@@ -39,6 +39,7 @@ begin
     and r.status_code = 200
     and r.content is not null
     and length(r.content) > 0
+    and octet_length(r.content) <= 2 * 1024 * 1024
   on conflict (feed_id, body_hash) do nothing;
   get diagnostics affected = row_count;
 
@@ -89,6 +90,13 @@ begin
   perform public.collect_feed_responses();
 
   if not coalesce((select server_fetch_enabled from public.settings where id = 1), false) then
+    return 0;
+  end if;
+
+  -- Safety stop: never let background downloads push the database towards
+  -- the 500 MB limit of the free plan. The app still refreshes feeds itself.
+  if pg_database_size(current_database()) > 350 * 1024 * 1024 then
+    raise warning 'rss: database is over 350 MB, background fetching is paused';
     return 0;
   end if;
 
