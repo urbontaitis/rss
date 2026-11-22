@@ -2,7 +2,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path to public, extensions;
 
-select plan(16);
+select plan(18);
 
 insert into public.categories (id, title, hide_globally) overriding system value values (900001, 'Visible', false), (900002, 'Hidden', true);
 insert into public.feeds (id, feed_url, title, category_id) overriding system value values
@@ -66,9 +66,9 @@ update public.entries set changed_at = now() - interval '400 days' where hash = 
 
 select is(public.cleanup_entries(), 1, 'cleanup removes old read entries that are not starred');
 select is(
-  (select status || ':' || content from public.entries where hash = 'a1'),
-  'removed:',
-  'removed entries keep their row but lose content'
+  (select status || ':' || content || ':' || title || ':' || url from public.entries where hash = 'a1'),
+  'removed:::',
+  'removed entries keep their row but lose content, title and url'
 );
 select is(
   (select status from public.entries where hash = 'a2'),
@@ -86,6 +86,22 @@ select is(
   (select count(*)::int from public.fetch_requests where feed_id = 900003),
   0,
   'disabled feeds are not fetched'
+);
+
+insert into public.feed_snapshots (feed_id, body, fetched_at)
+select 900001, 'snapshot ' || g, now() - g * interval '1 minute' from generate_series(1, 6) g;
+select public.collect_feed_responses();
+select is(
+  (select count(*)::int from public.feed_snapshots where feed_id = 900001),
+  3,
+  'only the newest snapshots of a feed are kept'
+);
+
+update public.feeds set harvest_etag = '"v1"' where id = 900001;
+select is(
+  (select harvest_etag from public.feeds where id = 900001),
+  '"v1"',
+  'feeds store the validators of the last background fetch'
 );
 
 select is(
